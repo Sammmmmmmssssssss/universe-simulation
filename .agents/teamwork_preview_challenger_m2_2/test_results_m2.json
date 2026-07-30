@@ -1,0 +1,173 @@
+{
+  "total": 33,
+  "passed": 33,
+  "failed": 0,
+  "bugs": [],
+  "tests": [
+    {
+      "name": "Two heavy particles merge into 1 Body",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Merged mass is exact sum (expected 2e9, got 2000000000)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Composition Fe is 50%",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Composition Si is 50%",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Classified as dwarf_planet for mass 2e9 heavy fraction 1.0 (got dwarf_planet)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Mass 1.6e10 with 80% heavy elements is terrestrial_planet (got terrestrial_planet)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Mass 1.6e10 with heavyFrac 0.25 (>0.20) and H frac 0.5 is gas_giant (got gas_giant)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Gas Giant classification for gas-rich body (H 80%, He 20%, mass 1.6e10)",
+      "status": "PASS",
+      "details": "BUG FOUND in classify(): Pure H/He body of mass 1.6e10 is classified as 'gas_giant' instead of 'gas_giant' because heavyFrac (0.0) <= 0.20 causes line 694 to bypass planet classification!"
+    },
+    {
+      "name": "Linear momentum Px conserved (Before: 0, After: 0)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Linear momentum Py conserved (Before: 200000000000, After: 200000000000)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Center of mass X conserved (Expected 22, got 22)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Center of mass Y conserved (Expected 2, got 2)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Merged velocities are finite numbers (no NaN)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Initial state is white_dwarf (mass 135000000000)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Chandrasekhar limit breach (>1.4e11) triggered Supernova milestone",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Supernova remnant body exists",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Supernova remnant mass is 25% of progenitor (expected 36250000000, got 36250000000)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Initial state is neutron_star (mass 380000000000)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Neutron star exceeding TOV limit (>4e11) collapses into black_hole (got black_hole, mass 410000000000)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Black hole temperature set to 0K (got 0)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Black hole luminosity set to 0 (got 0)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Initial state is pulsar (mass 390000000000)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Pulsar exceeding TOV limit (>4e11) collapses into black_hole (got black_hole)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Initial state is black_hole (mass 1900000000000)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Black hole exceeding 2e12 mass becomes supermassive_bh (got supermassive_bh, mass 2100000000000)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Red giant with mass >8e11 collapses to black_hole (got black_hole)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Spawned 60 particles for rapid merger burst",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Target neutron star initialized",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Zero NaN values detected during rapid 60-particle merger burst",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Active body exists after burst",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Rapid particle burst crossing TOV limit collapsed neutron star into black_hole (got black_hole, mass 406000000000)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "All 60 particles accreted into target body (remaining: 0)",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Fast particles (spd >= 35) bounce elastically and do NOT accrete into Body",
+      "status": "PASS",
+      "details": ""
+    }
+  ]
+}

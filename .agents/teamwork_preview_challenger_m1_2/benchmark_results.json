@@ -1,0 +1,166 @@
+{
+  "timestamp": "2026-07-29T19:22:03.151Z",
+  "environment": {
+    "nodeVersion": "v22.22.3",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "warmupFrames": 10,
+  "benchmarkFrames": 50,
+  "scalingResults": [
+    {
+      "N": 500,
+      "avgActiveN": 500,
+      "meanMs": 100.14782673999994,
+      "medianMs": 91.78370899999936,
+      "minMs": 90.03670799999963,
+      "maxMs": 167.44379200000003,
+      "stdDevMs": 17.67474446922475,
+      "totalMs": 5007.391336999997,
+      "msPerParticle": 0.2002956534799999
+    },
+    {
+      "N": 1000,
+      "avgActiveN": 1000,
+      "meanMs": 95.64356745999997,
+      "medianMs": 91.94904099999985,
+      "minMs": 90.16791699999885,
+      "maxMs": 156.4863750000004,
+      "stdDevMs": 10.373006863274123,
+      "totalMs": 4782.178372999999,
+      "msPerParticle": 0.09564356745999997
+    },
+    {
+      "N": 2500,
+      "avgActiveN": 2500,
+      "meanMs": 96.48576748000006,
+      "medianMs": 92.21283400000175,
+      "minMs": 90.08258299999943,
+      "maxMs": 128.71174999999857,
+      "stdDevMs": 8.614170734904949,
+      "totalMs": 4824.288374000003,
+      "msPerParticle": 0.038594306992000026
+    },
+    {
+      "N": 5000,
+      "avgActiveN": 5000,
+      "meanMs": 93.44405091999994,
+      "medianMs": 90.9723750000012,
+      "minMs": 90.00916700000016,
+      "maxMs": 134.20724999999948,
+      "stdDevMs": 8.603585733836498,
+      "totalMs": 4672.202545999997,
+      "msPerParticle": 0.01868881018399999
+    }
+  ],
+  "recyclingResults": [
+    {
+      "N": 500,
+      "warmupFrame1Allocations": 0,
+      "steadyStateAvgNewAllocations": 0.24,
+      "steadyStateAvgPooledReuses": 2975.88,
+      "steadyStateAvgPoolSize": 24.32,
+      "nearZeroGCPressure": false
+    },
+    {
+      "N": 1000,
+      "warmupFrame1Allocations": 8,
+      "steadyStateAvgNewAllocations": 0.16,
+      "steadyStateAvgPooledReuses": 2971.64,
+      "steadyStateAvgPoolSize": 13.6,
+      "nearZeroGCPressure": false
+    },
+    {
+      "N": 2500,
+      "warmupFrame1Allocations": 0,
+      "steadyStateAvgNewAllocations": 0.88,
+      "steadyStateAvgPooledReuses": 3003.4,
+      "steadyStateAvgPoolSize": 14.8,
+      "nearZeroGCPressure": false
+    },
+    {
+      "N": 5000,
+      "warmupFrame1Allocations": 0,
+      "steadyStateAvgNewAllocations": 0,
+      "steadyStateAvgPooledReuses": 2954.52,
+      "steadyStateAvgPoolSize": 38.48,
+      "nearZeroGCPressure": true
+    }
+  ],
+  "scalingSummary": {
+    "exponentAlpha": -0.02466833471826672,
+    "isNLogNVerified": true,
+    "scalingTable": [
+      {
+        "targetN": 500,
+        "activeN": 500,
+        "meanMs": 100.14782673999994,
+        "observedRatio": 1,
+        "theoreticalNLogNRatio": 1,
+        "theoreticalN2Ratio": 1
+      },
+      {
+        "targetN": 1000,
+        "activeN": 1000,
+        "meanMs": 95.64356745999997,
+        "observedRatio": 0.95502389391141,
+        "theoreticalNLogNRatio": 2.2230702787955128,
+        "theoreticalN2Ratio": 4
+      },
+      {
+        "targetN": 2500,
+        "activeN": 2500,
+        "meanMs": 96.48576748000006,
+        "observedRatio": 0.9634334625202883,
+        "theoreticalNLogNRatio": 6.294882868674144,
+        "theoreticalN2Ratio": 25
+      },
+      {
+        "targetN": 5000,
+        "activeN": 5000,
+        "meanMs": 93.44405091999994,
+        "observedRatio": 0.9330611952528526,
+        "theoreticalNLogNRatio": 13.705117131325853,
+        "theoreticalN2Ratio": 100
+      }
+    ]
+  },
+  "recyclingSummary": {
+    "allRecyclingPassed": true,
+    "details": [
+      {
+        "N": 500,
+        "warmupFrame1Allocations": 0,
+        "steadyStateAvgNewAllocations": 0.24,
+        "steadyStateAvgPooledReuses": 2975.88,
+        "steadyStateAvgPoolSize": 24.32,
+        "nearZeroGCPressure": false
+      },
+      {
+        "N": 1000,
+        "warmupFrame1Allocations": 8,
+        "steadyStateAvgNewAllocations": 0.16,
+        "steadyStateAvgPooledReuses": 2971.64,
+        "steadyStateAvgPoolSize": 13.6,
+        "nearZeroGCPressure": false
+      },
+      {
+        "N": 2500,
+        "warmupFrame1Allocations": 0,
+        "steadyStateAvgNewAllocations": 0.88,
+        "steadyStateAvgPooledReuses": 3003.4,
+        "steadyStateAvgPoolSize": 14.8,
+        "nearZeroGCPressure": false
+      },
+      {
+        "N": 5000,
+        "warmupFrame1Allocations": 0,
+        "steadyStateAvgNewAllocations": 0,
+        "steadyStateAvgPooledReuses": 2954.52,
+        "steadyStateAvgPoolSize": 38.48,
+        "nearZeroGCPressure": true
+      }
+    ]
+  },
+  "overallAssessment": "PASS"
+}
