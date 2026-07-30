@@ -637,10 +637,17 @@ class Body{
     this.luminosity=0;this.hasAtmosphere=false;this.molecules={};
     this.habitability=0;this.lifeDetected=false;this.biochemistry=null;
     this.bioStage=-1;this.bioAge=0;this.bioEvents=[];
+    this.hasMagnetosphere=false;this.atmosphericPressure=0;
     this.id=_nextId++;
     this.classify();
   }
   get hFrac(){return this.composition['H']||0;}
+  get surface(){
+    if(!this._surface && this.isPlanet()){
+      this._surface = new PlanetSurface(100, 100, this);
+    }
+    return this._surface;
+  }
   get radius(){
     if(this.type==='black_hole'||this.type==='supermassive_bh')return Math.log(this.mass)*1.8;
     if(this.type==='neutron_star'||this.type==='pulsar')return 5;
@@ -768,7 +775,16 @@ class Body{
     const dist = Math.max(r, 1);
     const res = star.temp * Math.pow(star.radius / (2 * dist), 0.5) * 0.8;
     this.temp = (Number.isFinite(res) && !isNaN(res)) ? Math.max(10, res) : 250;
-    if(this.hasAtmosphere)this.temp*=1.2;
+    
+    // Calculate Atmospheric Pressure based on mass (Earth ~ 5e9 mass)
+    this.atmosphericPressure = this.hasAtmosphere ? Math.pow(this.mass / 5e9, 1.5) : 0;
+
+    if(this.hasAtmosphere){
+      let greenhouseBonus = 1.1; // Base atmospheric warming
+      if(this.molecules['CO₂']) greenhouseBonus += 0.35 * Math.min(this.atmosphericPressure, 5);
+      if(this.molecules['CH₄']) greenhouseBonus += 0.60 * Math.min(this.atmosphericPressure, 5);
+      this.temp *= greenhouseBonus;
+    }
   }
 
   computeHab(){
@@ -818,6 +834,23 @@ function physicsStep(physDt, ageDt){
 
   const all=[...particles.filter(p=>p.active),...bodies.filter(b=>b.active)];
   if(!all.length)return;
+  
+  // Floating Origin: Prevent Floating-Point precision loss at huge cosmic scales
+  if (Math.hypot(cam.x, cam.y) > 25000) {
+    const shiftX = cam.x;
+    const shiftY = cam.y;
+    for (const p of all) {
+      if (Number.isFinite(p.x)) p.x -= shiftX;
+      if (Number.isFinite(p.y)) p.y -= shiftY;
+    }
+    cam.x = 0;
+    cam.y = 0;
+    // Also shift supernova flashes if any exist
+    for (const f of supernovaFlashes) {
+      if (Number.isFinite(f.x)) f.x -= shiftX;
+      if (Number.isFinite(f.y)) f.y -= shiftY;
+    }
+  }
   
   let mnX=Infinity,mxX=-Infinity,mnY=Infinity,mxY=-Infinity;
   for(const p of all){
@@ -919,7 +952,7 @@ function physicsStep(physDt, ageDt){
   
   collide(all, qt);
   evolveStars(ageDt);
-  calcMolecules();
+  calcMolecules(ageDt);
   updateHUD();
   particles=particles.filter(p=>p.active);
   bodies=bodies.filter(b=>b.active);
@@ -1231,10 +1264,29 @@ function triggerSN(star){
   bodies.push(rem);
 }
 
-function calcMolecules(){
+function calcMolecules(ageDt){
+  const lumStars = bodies.filter(b => b.active && b.isStar() && b.luminosity > 0);
   for(const b of bodies){
     if(!b.active||!b.isPlanet())continue;
-    const c=b.composition;b.molecules={};
+    const c=b.composition;
+    
+    // Magnetosphere (needs mass & molten iron core)
+    b.hasMagnetosphere = (c['Fe'] || 0) > 0.15 && b.mass > 3e9;
+    
+    // Solar Wind Stripping of Atmospheres
+    if(!b.hasMagnetosphere && lumStars.length > 0){
+      let nd=Infinity,ns=null;
+      for(const s of lumStars){const d=Math.hypot(b.x-s.x,b.y-s.y);if(d<nd){nd=d;ns=s;}}
+      if(ns && nd < 350){
+        const strip = (ns.luminosity * (ageDt||0.016) * 0.005) / Math.max(1, nd/10);
+        c['H'] = Math.max(0, (c['H']||0) - strip);
+        c['C'] = Math.max(0, (c['C']||0) - strip * 0.2);
+        c['N'] = Math.max(0, (c['N']||0) - strip * 0.2);
+        c['O'] = Math.max(0, (c['O']||0) - strip * 0.2);
+      }
+    }
+    
+    b.molecules={};
     for(const mol of MOLECULES){
       let ok=true;
       for(const[el,cnt]of Object.entries(mol.inputs)){if((c[el]||0)<0.005*cnt){ok=false;break;}}
@@ -1247,7 +1299,13 @@ function calcMolecules(){
         }
       }
     }
-    b.hasAtmosphere=Object.keys(b.molecules).length>0;
+    
+    // If escape velocity is too low, planet cannot hold any gas
+    const escapeVel = Math.sqrt(b.mass / Math.max(1, b.radius));
+    b.hasAtmosphere = (Object.keys(b.molecules).length > 0) && (escapeVel > 25000); 
+    // Wait, let's normalize escape velocity threshold based on our scale
+    // mass is e.g. 5e9, radius is 5. sqrt(1e9) = ~31622
+    b.hasAtmosphere = (Object.keys(b.molecules).length > 0) && (escapeVel > 20000);
   }
 }
 
@@ -1409,6 +1467,209 @@ function drawBody(b,sx,sy,sr){
 }
 
 // ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// PROCEDURAL TERRAIN GENERATOR (BACKEND LOGIC)
+// ═══════════════════════════════════════════════════
+class SimpleNoise {
+  constructor(seed = 1) {
+    this.p = new Uint8Array(256);
+    let s = seed;
+    // Linear Congruential Generator for deterministic seeded randomness
+    for (let i = 0; i < 256; i++) {
+      s = (s * 1664525 + 1013904223) % 4294967296;
+      this.p[i] = Math.floor((s / 4294967296) * 256);
+    }
+    this.perm = new Uint8Array(512);
+    for (let i = 0; i < 512; i++) this.perm[i] = this.p[i & 255];
+  }
+  fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+  lerp(t, a, b) { return a + t * (b - a); }
+  grad(hash, x, y) {
+    const h = hash & 15;
+    const u = h < 8 ? x : y, v = h < 4 ? y : h === 12 || h === 14 ? x : 0;
+    return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+  }
+  noise(x, y) {
+    let X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
+    x -= Math.floor(x); y -= Math.floor(y);
+    const u = this.fade(x), v = this.fade(y);
+    const A = this.perm[X] + Y, B = this.perm[X + 1] + Y;
+    return this.lerp(v, 
+      this.lerp(u, this.grad(this.perm[A], x, y), this.grad(this.perm[B], x - 1, y)),
+      this.lerp(u, this.grad(this.perm[A + 1], x, y - 1), this.grad(this.perm[B + 1], x - 1, y - 1))
+    );
+  }
+  fbm(x, y, octaves = 4, persistence = 0.5, lacunarity = 2.0) {
+    let total = 0, frequency = 1, amplitude = 1, maxValue = 0;
+    for(let i = 0; i < octaves; i++) {
+      total += this.noise(x * frequency, y * frequency) * amplitude;
+      maxValue += amplitude;
+      amplitude *= persistence;
+      frequency *= lacunarity;
+    }
+    return total / maxValue;
+  }
+}
+
+class PlanetSurface {
+  constructor(width, height, planetBody) {
+    this.width = width;
+    this.height = height;
+    this.grid = new Array(width * height);
+    this.planet = planetBody;
+    // Use the planet's unique ID + name string length for persistent, deterministic terrain
+    let seed = planetBody.id * 73 + (planetBody.name ? planetBody.name.length : 1);
+    this.noiseGen = new SimpleNoise(seed);
+    this.seaLevel = 0.45;
+    this.generate();
+  }
+  
+  getBiomeSet() {
+    const p = this.planet;
+    const t = p.temp;
+    const bio = p.biochemistry ? p.biochemistry.id : 'none';
+    
+    // Default Earth-like biomes
+    let b = { deep_sea: 'deep_water', sea: 'shallow_water', coast: 'sand', desert: 'desert', plains: 'plains', forest: 'forest', mountain: 'mountain', peak: 'snow' };
+    
+    if (t > 500) { // Molten / Super hot planet
+      b = { deep_sea: 'magma', sea: 'lava', coast: 'basalt', desert: 'obsidian', plains: 'rock', forest: 'ash', mountain: 'volcano', peak: 'crater' };
+    } else if (t < 150) { // Extremely cold (Cryo)
+      b = { deep_sea: 'deep_methane', sea: 'methane_lake', coast: 'methane_ice', desert: 'dry_ice', plains: 'frozen_plains', forest: 'cryo_spires', mountain: 'ice_mountain', peak: 'frozen_peak' };
+    }
+    
+    // Override based on specific biochemistries if life is present
+    if (bio === 'methano-carbon') {
+      b.deep_sea = 'deep_methane'; b.sea = 'methane_sea'; b.coast = 'hydrocarbon_sludge'; b.forest = 'cryo_flora';
+    } else if (bio === 'ammonia-carbon') {
+      b.deep_sea = 'deep_ammonia'; b.sea = 'ammonia_sea'; b.coast = 'ammonia_ice'; b.forest = 'amide_flora';
+    } else if (bio === 'sulfuric-carbon') {
+      b.deep_sea = 'deep_acid'; b.sea = 'sulfuric_acid'; b.coast = 'sulfur_crust'; b.forest = 'acid_flora';
+    } else if (bio === 'silicon-thermo') {
+      b.deep_sea = 'deep_magma'; b.sea = 'silicate_melt'; b.coast = 'glass_coast'; b.forest = 'crystal_forest';
+    } else if (bio === 'radiotrophic') {
+      b.forest = 'fungal_forest'; b.plains = 'lichen_plains';
+    }
+    
+    // If no liquid solvents are present (and it's not molten), reduce sea level (dry planet)
+    if (!p.molecules['H₂O'] && !p.molecules['CH₄'] && !p.molecules['NH₃'] && t < 500) {
+      this.seaLevel = 0.2; 
+    }
+
+    return b;
+  }
+
+  generate() {
+    const biomes = this.getBiomeSet();
+    const sl = this.seaLevel;
+    
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const nx = x / 25, ny = y / 25;
+        // Layered FBM for natural terrain features
+        let e = this.noiseGen.fbm(nx, ny, 5) * 0.5 + 0.5;
+        let m = this.noiseGen.fbm(nx + 13.3, ny + 7.1, 3) * 0.5 + 0.5;
+        
+        let type = '';
+        if (e < sl - 0.1) type = biomes.deep_sea;
+        else if (e < sl) type = biomes.sea;
+        else if (e < sl + 0.05) type = biomes.coast;
+        else if (e < 0.7) {
+          if (m < 0.35) type = biomes.desert;
+          else if (m < 0.65) type = biomes.plains;
+          else type = biomes.forest;
+        } else if (e < 0.85) type = biomes.mountain;
+        else type = biomes.peak;
+        
+        let nutrients = { C: 10 + e * 20, N: 5 + m * 10, P: 2 + e * 5 };
+        if(type === biomes.coast || type === biomes.deep_sea) {
+          nutrients.N += 10;
+          nutrients.P += 5;
+        }
+        
+        let life = null;
+        if(this.planet.lifeDetected && (type === biomes.deep_sea || type === biomes.coast) && this.noiseGen.fbm(nx, ny, 1) > 0.8) {
+          life = { type: 'organic_soup', mass: 1, age: 0 };
+        }
+        
+        this.grid[y * this.width + x] = { elevation: e, moisture: m, type: type, nutrients: nutrients, life: life };
+      }
+    }
+  }
+  
+  tickAutomata() {
+    if (!this.planet.lifeDetected) return;
+    
+    // Simple double-buffer array for life updates
+    const newLife = new Array(this.width * this.height);
+    
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const idx = y * this.width + x;
+        const tile = this.grid[idx];
+        
+        // Background nutrient replenishment (e.g. from vents/weathering)
+        if (tile.nutrients.C < 50) tile.nutrients.C += 0.01;
+        if (tile.nutrients.N < 50) tile.nutrients.N += 0.01;
+        
+        if (tile.life) {
+          let l = { ...tile.life };
+          l.age++;
+          
+          // Consume nutrients to grow
+          if (tile.nutrients.C > 0.2 && tile.nutrients.N > 0.2) {
+            tile.nutrients.C -= 0.2;
+            tile.nutrients.N -= 0.2;
+            l.mass += 0.1;
+          } else {
+            l.mass -= 0.15; // Starvation
+          }
+          
+          if (l.mass <= 0) {
+            // Death: return nutrients to soil
+            tile.nutrients.C += 1.0;
+            tile.nutrients.N += 1.0;
+            newLife[idx] = null;
+          } else {
+            newLife[idx] = l;
+            
+            // Reproduction / Spreading
+            if (l.mass > 2.0) {
+              const neighbors = [
+                {nx: x+1, ny: y}, {nx: x-1, ny: y}, {nx: x, ny: y+1}, {nx: x, ny: y-1}
+              ];
+              // Pick a random valid neighbor
+              const valid = neighbors.filter(n => n.nx>=0 && n.nx<this.width && n.ny>=0 && n.ny<this.height);
+              if (valid.length > 0) {
+                 const target = valid[Math.floor(Math.random() * valid.length)];
+                 const tidx = target.ny * this.width + target.nx;
+                 const ttile = this.grid[tidx];
+                 
+                 // Can only spread to tiles with nutrients and not extreme heat
+                 if (!newLife[tidx] && !ttile.life && ttile.nutrients.C > 1 && ttile.type !== 'magma' && ttile.type !== 'lava') {
+                    newLife[tidx] = { type: l.type, mass: 0.5, age: 0 };
+                    l.mass -= 0.5; // Cost of reproduction
+                 }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Apply buffer
+    for (let i = 0; i < this.grid.length; i++) {
+      this.grid[i].life = newLife[i] || null;
+    }
+  }
+  
+  getTile(x, y) {
+    if(x < 0 || x >= this.width || y < 0 || y >= this.height) return null;
+    return this.grid[Math.floor(y) * this.width + Math.floor(x)];
+  }
+}
+
+// ═══════════════════════════════════════════════════
 // BIOSPHERE VIEW
 // ═══════════════════════════════════════════════════
 const bioCanvas=document.getElementById('bio-canvas');
@@ -1480,6 +1741,11 @@ function bioLoop(){
   const w=bioCanvas.width,h=bioCanvas.height;
   const th=getBioTheme(),bio=bioPlanet&&bioPlanet.biochemistry,stage=bioPlanet?bioPlanet.bioStage:-1;
   bioCtx.clearRect(0,0,w,h);
+  
+  // Tick cellular automata on backend
+  if(bioPlanet && bioPlanet.surface) {
+    bioPlanet.surface.tickAutomata();
+  }
   
   const sg=bioCtx.createLinearGradient(0,0,0,h*0.55);
   sg.addColorStop(0,th.sky);sg.addColorStop(1,lighten(th.sky,20));
@@ -1873,8 +2139,13 @@ function loop(ts){
   
   if(!paused){
     const validSpeedMult = (Number.isFinite(speedMult) && speedMult > 0) ? speedMult : 1;
-    const physDt = Math.min(Math.max(0.001, DT_BASE * validSpeedMult), 0.35); 
-    const ageDt = DT_BASE * validSpeedMult * YEAR_SCALE;
+    
+    // Time Dilation / Throttling: If Biosphere (Layer 2) is active, slow down the background universe (Layer 1)
+    const isBiosphereActive = (typeof bioPlanet !== 'undefined' && bioPlanet !== null && document.getElementById('biosphere-overlay').style.display === 'flex');
+    const dilation = isBiosphereActive ? 0.05 : 1.0;
+    
+    const physDt = Math.min(Math.max(0.001, (DT_BASE * validSpeedMult * dilation)), 0.35); 
+    const ageDt = DT_BASE * validSpeedMult * YEAR_SCALE * dilation;
     cosmicAge += Number.isFinite(ageDt) ? ageDt : 0;
     if (!Number.isFinite(cosmicAge) || isNaN(cosmicAge)) cosmicAge = 0;
     physicsStep(physDt, ageDt);
